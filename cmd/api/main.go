@@ -1,23 +1,24 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"log/slog"
 	"switchyard/internal/config"
+	"switchyard/internal/logger"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("Env file not found")
-	}
-
-	config, err := config.LoadConfig()
+	godotenv.Load()
+	config, err := config.Load()
 
 	if err != nil {
 		log.Fatal("Failed to load required configurations", err)
 	}
 
-	fmt.Println(config)
+	logger := logger.New()
+	slog.SetDefault(logger)
+
+	slog.Info("Config loaded successfully")
 }

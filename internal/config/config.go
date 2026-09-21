@@ -1,34 +1,59 @@
 package config
 
 import (
-	"errors"
+	"fmt"
 	"os"
+	"strings"
 )
 
 type AppConfig struct {
-	ENV         string
-	PORT        string
-	MONGODB_URI string
-	JWT_SECRET  string
+	Environment string
+	Port        string
+	MongoDBURI  string
+	JWTSecret   string
 }
 
-func LoadConfig() (*AppConfig, error) {
+func Load() (*AppConfig, error) {
 	cfg := &AppConfig{
-		ENV:         getEnv("ENV", "development"),
-		PORT:        getEnv("PORT", "8080"),
-		MONGODB_URI: getEnv("MONGODB_URI", ""),
-		JWT_SECRET:  getEnv("JWT_SECRET", ""),
+		Environment: getEnv("ENV"),
+		Port:        getEnv("PORT"),
+		MongoDBURI:  getEnv("MONGODB_URI"),
+		JWTSecret:   getEnv("JWT_SECRET"),
 	}
 
-	if cfg.MONGODB_URI == "" {
-		return nil, errors.New("DB URI not found")
+	if err := validate(cfg); err != nil {
+		return nil, err
 	}
 	return cfg, nil
 }
 
-func getEnv(key, fallbackValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func getEnv(key string) string {
+	return os.Getenv(key)
+}
+
+func validate(cfg *AppConfig) error {
+	var missing []string
+
+	if cfg.Environment == "" {
+		missing = append(missing, "Environment")
 	}
-	return fallbackValue
+
+	if cfg.Port == "" {
+		missing = append(missing, "Port")
+	}
+
+	if cfg.MongoDBURI == "" {
+		missing = append(missing, "MongoDBURI")
+	}
+
+	if cfg.JWTSecret == "" {
+		missing = append(missing, "JWTSecret")
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("Missing required configuration: %s",
+			strings.Join(missing, ", "))
+	}
+
+	return nil
 }
