@@ -1,0 +1,53 @@
+# Binaries and build artifacts
+/bin/
+/dist/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go tooling and coverage
+coverage.out
+coverage.html
+*.prof
+vendor/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs and runtime files
+*.log
+*.pid
+*.seed
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS-generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+.tmp/
+.temp/
+tmp/
+temp/
+*.tmp
+*.temp
