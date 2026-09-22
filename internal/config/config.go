@@ -10,8 +10,8 @@ import (
 type AppConfig struct {
 	Environment string
 	Port        string
-	Mongo       MongoConfig
 	JWTSecret   string
+	Mongo       MongoConfig
 }
 
 type MongoConfig struct {
@@ -90,7 +90,7 @@ func getUint(key string) (uint64, error) {
 	value := getEnv(key)
 
 	if value == "" {
-		return 0, fmt.Errorf("%s is required", key)
+		return 0, fmt.Errorf("missing %s", key)
 	}
 	result, err := strconv.ParseUint(value, 10, 64)
 

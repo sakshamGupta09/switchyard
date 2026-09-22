@@ -25,7 +25,6 @@ func main() {
 		slog.Error("Failed to load required configurations", "error", err)
 		os.Exit(1)
 	}
-
 	slog.Info("Config loaded successfully")
 
 	// Database setup

@@ -38,7 +38,9 @@ func New(cfg *config.MongoConfig) (*Client, error) {
 	defer cancel()
 
 	if err := client.Ping(pingCtx, nil); err != nil {
-		client.Disconnect(context.Background())
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		defer cancel()
+		client.Disconnect(shutdownCtx)
 		return nil, err
 	}
 	return &Client{client: client, db: client.Database(cfg.Database)}, nil
