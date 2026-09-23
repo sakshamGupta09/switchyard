@@ -12,37 +12,49 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const shutdownTimeout = 5 * time.Second
+
 func main() {
-	// Logger setup
-	appLogger := logger.New()
-	slog.SetDefault(appLogger)
+	// Logging setup
+	slog.SetDefault(logger.New())
 
 	// Environment variables setup
-	godotenv.Load()
-	config, err := config.Load()
-
-	if err != nil {
-		slog.Error("Failed to load required configurations", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("Config loaded successfully")
+	cfg := mustLoadConfig()
 
 	// Database setup
-	client, err := mongo.New(&config.Mongo)
-
-	if err != nil {
-		slog.Error("failed to connect DB", "error", err)
-		os.Exit(1)
-	}
-	defer cleanup(client)
-	slog.Info("mongoDB connected!")
+	client := mustConnectMongo(&cfg.Mongo)
+	defer closeMongo(client)
 }
 
-func cleanup(client *mongo.Client) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func mustLoadConfig() *config.AppConfig {
+	godotenv.Load()
+	cfg, err := config.Load()
+
+	if err != nil {
+		slog.Error("loading config", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("config loaded successfully")
+	return cfg
+}
+
+func mustConnectMongo(cfg *config.MongoConfig) *mongo.Client {
+	client, err := mongo.New(cfg)
+
+	if err != nil {
+		slog.Error("connecting to MongoDB", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("MongoDB connected!")
+	return client
+}
+
+func closeMongo(client *mongo.Client) {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	if err := client.Close(ctx); err != nil {
-		slog.Error("failed to close MongoDB", "error", err)
+		slog.Error("disconnecting MongoDB", "error", err)
+		return
 	}
 }

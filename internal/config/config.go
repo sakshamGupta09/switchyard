@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,7 +10,7 @@ import (
 
 type AppConfig struct {
 	Environment string
-	Port        string
+	Port        uint64
 	JWTSecret   string
 	Mongo       MongoConfig
 }
@@ -22,80 +23,118 @@ type MongoConfig struct {
 }
 
 func Load() (*AppConfig, error) {
-	minPoolSize, err := getUint("MONGO_MIN_POOL_SIZE")
+	var validationErrors []error
+
+	environment, err := requiredString("ENV")
 	if err != nil {
-		return nil, err
+		validationErrors = append(validationErrors, err)
 	}
 
-	maxPoolSize, err := getUint("MONGO_MAX_POOL_SIZE")
-
+	jwtSecret, err := requiredString("JWT_SECRET")
 	if err != nil {
-		return nil, err
+		validationErrors = append(validationErrors, err)
+	}
+
+	mongoURI, err := requiredString("MONGO_URI")
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
+	dbName, err := requiredString("MONGO_DATABASE")
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
+	minPoolSize, err := requiredUint("MONGO_MIN_POOL_SIZE")
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
+	maxPoolSize, err := requiredUint("MONGO_MAX_POOL_SIZE")
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
+	port, err := requiredUint("PORT")
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
+	if len(validationErrors) > 0 {
+		return nil, fmt.Errorf("invalid configuration: %w", errors.Join(validationErrors...))
 	}
 
 	cfg := &AppConfig{
-		Environment: getEnv("ENV"),
-		Port:        getEnv("PORT"),
-		JWTSecret:   getEnv("JWT_SECRET"),
+		Environment: environment,
+		JWTSecret:   jwtSecret,
+		Port:        port,
 		Mongo: MongoConfig{
-			URI:         getEnv("MONGO_URI"),
-			Database:    getEnv("MONGO_DATABASE"),
+			URI:         mongoURI,
+			Database:    dbName,
 			MinPoolSize: minPoolSize,
 			MaxPoolSize: maxPoolSize,
 		},
 	}
 
-	if err := validate(cfg); err != nil {
-		return nil, err
+	if err = validate(cfg); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
+
 	return cfg, nil
 }
 
-func getEnv(key string) string {
-	return os.Getenv(key)
-}
-
 func validate(cfg *AppConfig) error {
-	var missing []string
+	var errs []error
 
-	if cfg.Environment == "" {
-		missing = append(missing, "ENV")
+	if cfg.Port < 1 || cfg.Port > 65535 {
+		errs = append(errs,
+			fmt.Errorf("PORT must be between 1 and 65535"),
+		)
 	}
 
-	if cfg.Port == "" {
-		missing = append(missing, "PORT")
+	if len(cfg.JWTSecret) < 32 {
+		errs = append(errs,
+			fmt.Errorf("JWT secret must contain at least 32 characters"),
+		)
 	}
 
-	if cfg.JWTSecret == "" {
-		missing = append(missing, "JWT_SECRET")
+	if cfg.Mongo.MinPoolSize > cfg.Mongo.MaxPoolSize {
+		errs = append(errs,
+			fmt.Errorf(
+				"MONGO_MIN_POOL_SIZE cannot exceed MONGO_MAX_POOL_SIZE",
+			),
+		)
 	}
 
-	if cfg.Mongo.URI == "" {
-		missing = append(missing, "MONGO_URI")
-	}
-
-	if cfg.Mongo.Database == "" {
-		missing = append(missing, "MONGO_DATABASE")
-	}
-
-	if len(missing) > 0 {
-		return fmt.Errorf("Missing required configuration: %s",
-			strings.Join(missing, ", "))
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 
 	return nil
 }
 
-func getUint(key string) (uint64, error) {
+func requiredString(key string) (string, error) {
+	value := getEnv(key)
+	if value == "" {
+		return "", fmt.Errorf("missing required variable %s", key)
+	}
+	return value, nil
+}
+
+func requiredUint(key string) (uint64, error) {
 	value := getEnv(key)
 
 	if value == "" {
-		return 0, fmt.Errorf("missing %s", key)
+		return 0, fmt.Errorf("missing required variable %s", key)
 	}
-	result, err := strconv.ParseUint(value, 10, 64)
+	intValue, err := strconv.ParseUint(value, 10, 64)
 
 	if err != nil {
-		return 0, fmt.Errorf("invalid value for %s", key)
+		return 0, fmt.Errorf("invalid value for %s: %w", key, err)
 	}
-	return result, nil
+	return intValue, nil
+}
+
+func getEnv(key string) string {
+	return strings.TrimSpace(os.Getenv(key))
 }
