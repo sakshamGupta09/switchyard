@@ -98,6 +98,12 @@ func validate(cfg *AppConfig) error {
 		)
 	}
 
+	if cfg.Mongo.MaxPoolSize < 1 {
+		errs = append(errs,
+			fmt.Errorf("MONGO_MAX_POOL_SIZE must be at least 1"),
+		)
+	}
+
 	if cfg.Mongo.MinPoolSize > cfg.Mongo.MaxPoolSize {
 		errs = append(errs,
 			fmt.Errorf(
@@ -132,6 +138,7 @@ func requiredUint(key string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid value for %s: %w", key, err)
 	}
+
 	return intValue, nil
 }
 
