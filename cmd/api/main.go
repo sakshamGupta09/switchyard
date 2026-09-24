@@ -27,7 +27,7 @@ func main() {
 }
 
 func mustLoadConfig() *config.AppConfig {
-	godotenv.Load()
+	_ = godotenv.Load()
 	cfg, err := config.Load()
 
 	if err != nil {
