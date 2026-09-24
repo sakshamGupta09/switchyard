@@ -2,11 +2,18 @@ package mongo
 
 import (
 	"context"
+	"fmt"
 	"switchyard/internal/config"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+)
+
+const (
+	serverSelectionTimeout = 3 * time.Second
+	connectTimeout         = 3 * time.Second
+	pingTimeout            = 3 * time.Second
 )
 
 type Client struct {
@@ -26,23 +33,22 @@ func New(cfg *config.MongoConfig) (*Client, error) {
 		ApplyURI(cfg.URI).
 		SetMinPoolSize(cfg.MinPoolSize).
 		SetMaxPoolSize(cfg.MaxPoolSize).
-		SetServerSelectionTimeout(5 * time.Second).
-		SetConnectTimeout(5 * time.Second)
+		SetServerSelectionTimeout(serverSelectionTimeout).
+		SetConnectTimeout(connectTimeout)
 
 	client, err := mongo.Connect(clientOptions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connect to MongoDB: %w", err)
 	}
 
-	pingCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	pingCtx, cancel := context.WithTimeout(context.Background(), pingTimeout)
 	defer cancel()
 
 	if err := client.Ping(pingCtx, nil); err != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), pingTimeout)
 		defer cancel()
-		err = client.Disconnect(shutdownCtx)
-		return nil, err
+		_ = client.Disconnect(shutdownCtx)
+		return nil, fmt.Errorf("ping MongoDB: %w", err)
 	}
 	return &Client{client: client, db: client.Database(cfg.Database)}, nil
-
 }
