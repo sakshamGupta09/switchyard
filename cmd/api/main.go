@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"switchyard/internal/config"
@@ -33,11 +35,7 @@ func main() {
 	httpServer := server.NewServer(router, fmt.Sprint(":", cfg.Port))
 
 	// Start Server
-	serverError := make(chan error, 1)
-	go func() {
-		slog.Info("starting http server")
-		serverError <- httpServer.Start()
-	}()
+	serverError := startServer(httpServer)
 
 	// Wait for server failure or shutdown signal.
 	shutdownSignalCtx, stop := signal.NotifyContext(
@@ -52,11 +50,11 @@ func main() {
 	select {
 	case <-shutdownSignalCtx.Done():
 		slog.Info("shutdown signal received")
+		gracefulShutdown(httpServer, mongoClient)
 	case err := <-serverError:
 		slog.Error("server error", "error", err)
+		handleServerError(err)
 	}
-	gracefulShutdown(httpServer, mongoClient)
-
 }
 
 func mustLoadConfig() *config.AppConfig {
@@ -90,6 +88,23 @@ func closeMongo(client *mongo.Client) {
 		slog.Error("disconnecting MongoDB", "error", err)
 		return
 	}
+}
+
+func startServer(httpServer *server.Server) <-chan error {
+	serverError := make(chan error, 1)
+	go func() {
+		slog.Info("starting http server")
+		serverError <- httpServer.Start()
+	}()
+	return serverError
+}
+
+func handleServerError(err error) {
+	if errors.Is(err, http.ErrServerClosed) {
+		return
+	}
+	slog.Error("HTTP server stopped unexpectedly", "error", err)
+	os.Exit(1)
 }
 
 func gracefulShutdown(httpServer *server.Server, mongoClient *mongo.Client) {
