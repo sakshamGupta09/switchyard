@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -38,5 +37,5 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	return s.httpServer.Shutdown(ctx
+	return s.httpServer.Shutdown(ctx)
 }
