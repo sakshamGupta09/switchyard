@@ -18,76 +18,76 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const shutdownTimeout = 5 * time.Second
+const (
+	httpShutdownTimeout  = 5 * time.Second
+	mongoShutdownTimeout = 5 * time.Second
+)
 
 func main() {
-	// Logging setup
 	slog.SetDefault(logger.New())
 
-	// Environment variables setup
-	cfg := mustLoadConfig()
+	if err := run(); err != nil {
+		slog.Error("application failed", "error", err)
+		os.Exit(1)
+	}
+}
 
-	// Database setup
-	mongoClient := mustConnectMongo(&cfg.Mongo)
+func run() error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
 
-	// Server setup
+	mongoClient, err := connectMongo(&cfg.Mongo)
+	if err != nil {
+		return fmt.Errorf("connect MongoDB: %w", err)
+	}
+
 	router := server.NewRouter()
-	httpServer := server.NewServer(router, fmt.Sprint(":", cfg.Port))
+	httpServer := server.NewServer(router, fmt.Sprintf(":%d", cfg.Port))
 
-	// Start Server
-	serverError := startServer(httpServer)
-
-	// Wait for server failure or shutdown signal.
-	shutdownSignalCtx, stop := signal.NotifyContext(
+	signalCtx, stop := signal.NotifyContext(
 		context.Background(),
 		syscall.SIGINT,
 		syscall.SIGTERM,
-		os.Interrupt,
 	)
 
 	defer stop()
 
+	serverError := startServer(httpServer)
+
 	select {
-	case <-shutdownSignalCtx.Done():
+	case <-signalCtx.Done():
 		slog.Info("shutdown signal received")
 		gracefulShutdown(httpServer, mongoClient)
+		return nil
 	case err := <-serverError:
-		slog.Error("server error", "error", err)
-		handleServerError(err)
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		gracefulShutdown(httpServer, mongoClient)
+		return fmt.Errorf("start HTTP server: %w", err)
 	}
 }
 
-func mustLoadConfig() *config.AppConfig {
+func loadConfig() (*config.AppConfig, error) {
+	// Load .env for local development; production uses environment variables.
 	_ = godotenv.Load()
 	cfg, err := config.Load()
 
 	if err != nil {
-		slog.Error("loading config", "error", err)
-		os.Exit(1)
+		return nil, err
 	}
-	slog.Info("config loaded successfully")
-	return cfg
+	return cfg, nil
 }
 
-func mustConnectMongo(cfg *config.MongoConfig) *mongo.Client {
+func connectMongo(cfg *config.MongoConfig) (*mongo.Client, error) {
 	client, err := mongo.New(cfg)
 
 	if err != nil {
-		slog.Error("connecting to MongoDB", "error", err)
-		os.Exit(1)
+		return nil, err
 	}
-	slog.Info("MongoDB connected!")
-	return client
-}
-
-func closeMongo(client *mongo.Client) {
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
-
-	if err := client.Close(ctx); err != nil {
-		slog.Error("disconnecting MongoDB", "error", err)
-		return
-	}
+	return client, nil
 }
 
 func startServer(httpServer *server.Server) <-chan error {
@@ -99,27 +99,30 @@ func startServer(httpServer *server.Server) <-chan error {
 	return serverError
 }
 
-func handleServerError(err error) {
-	if errors.Is(err, http.ErrServerClosed) {
-		return
-	}
-	slog.Error("HTTP server stopped unexpectedly", "error", err)
-	os.Exit(1)
-}
-
 func gracefulShutdown(httpServer *server.Server, mongoClient *mongo.Client) {
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
-
 	// Stop accepting new requests and wait for in-flight requests.
-	if err := httpServer.Stop(ctx); err != nil {
+	if err := shutdownServer(httpServer); err != nil {
 		slog.Error("HTTP server shutdown failed", "error", err)
 	}
 
 	// Disconnect MongoDB after HTTP requests have stopped.
-	if err := mongoClient.Close(ctx); err != nil {
+	if err := disconnectMongo(mongoClient); err != nil {
 		slog.Error("MongoDB shutdown failed", "error", err)
 	}
 
 	slog.Info("application stopped")
+}
+
+func shutdownServer(httpServer *server.Server) error {
+	ctx, cancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
+	defer cancel()
+
+	return httpServer.Stop(ctx)
+}
+
+func disconnectMongo(mongoClient *mongo.Client) error {
+	ctx, cancel := context.WithTimeout(context.Background(), mongoShutdownTimeout)
+	defer cancel()
+
+	return mongoClient.Close(ctx)
 }

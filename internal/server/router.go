@@ -9,6 +9,7 @@ import (
 func NewRouter() *chi.Mux {
 	r := chi.NewRouter()
 
+	// Health routes
 	health.RegisterRoutes(r)
 
 	return r

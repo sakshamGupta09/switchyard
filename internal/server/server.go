@@ -7,11 +7,10 @@ import (
 )
 
 const (
-	readTimeout     = 10 * time.Second
-	writeTimeout    = 15 * time.Second
-	idleTimeout     = 60 * time.Second
-	shutdownTimeout = 10 * time.Second
-	maxHeaderBytes  = 1 << 20
+	readTimeout    = 10 * time.Second
+	writeTimeout   = 15 * time.Second
+	idleTimeout    = 60 * time.Second
+	maxHeaderBytes = 1 << 20
 )
 
 type Server struct {
