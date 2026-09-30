@@ -84,36 +84,36 @@ func Load() (*AppConfig, error) {
 }
 
 func validate(cfg *AppConfig) error {
-	var errs []error
+	var validationErrors []error
 
 	if cfg.Port < 1 || cfg.Port > 65535 {
-		errs = append(errs,
+		validationErrors = append(validationErrors,
 			fmt.Errorf("PORT must be between 1 and 65535"),
 		)
 	}
 
 	if len(cfg.JWTSecret) < 32 {
-		errs = append(errs,
+		validationErrors = append(validationErrors,
 			fmt.Errorf("JWT secret must contain at least 32 characters"),
 		)
 	}
 
 	if cfg.Mongo.MaxPoolSize < 1 {
-		errs = append(errs,
+		validationErrors = append(validationErrors,
 			fmt.Errorf("MONGO_MAX_POOL_SIZE must be at least 1"),
 		)
 	}
 
 	if cfg.Mongo.MinPoolSize > cfg.Mongo.MaxPoolSize {
-		errs = append(errs,
+		validationErrors = append(validationErrors,
 			fmt.Errorf(
 				"MONGO_MIN_POOL_SIZE cannot exceed MONGO_MAX_POOL_SIZE",
 			),
 		)
 	}
 
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+	if len(validationErrors) > 0 {
+		return errors.Join(validationErrors...)
 	}
 
 	return nil
