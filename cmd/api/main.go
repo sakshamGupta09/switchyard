@@ -33,12 +33,13 @@ func main() {
 }
 
 func run() error {
-	cfg, err := loadConfig()
+	_ = godotenv.Load()
+	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	mongoClient, err := connectMongo(&cfg.Mongo)
+	mongoClient, err := mongo.New(&cfg.Mongo)
 	if err != nil {
 		return fmt.Errorf("connect MongoDB: %w", err)
 	}
@@ -68,26 +69,6 @@ func run() error {
 		gracefulShutdown(httpServer, mongoClient)
 		return fmt.Errorf("start HTTP server: %w", err)
 	}
-}
-
-func loadConfig() (*config.AppConfig, error) {
-	// Load .env for local development; production uses environment variables.
-	_ = godotenv.Load()
-	cfg, err := config.Load()
-
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-func connectMongo(cfg *config.MongoConfig) (*mongo.Client, error) {
-	client, err := mongo.New(cfg)
-
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
 }
 
 func startServer(httpServer *server.Server) <-chan error {

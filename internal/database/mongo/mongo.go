@@ -38,7 +38,7 @@ func New(cfg *config.MongoConfig) (*Client, error) {
 
 	client, err := mongo.Connect(clientOptions)
 	if err != nil {
-		return nil, fmt.Errorf("connect to MongoDB: %w", err)
+		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
 	pingCtx, cancel := context.WithTimeout(context.Background(), pingTimeout)
@@ -48,7 +48,7 @@ func New(cfg *config.MongoConfig) (*Client, error) {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), pingTimeout)
 		defer cancel()
 		_ = client.Disconnect(shutdownCtx)
-		return nil, fmt.Errorf("ping MongoDB: %w", err)
+		return nil, fmt.Errorf("failed to ping MongoDB server: %w", err)
 	}
 	return &Client{client: client, db: client.Database(cfg.Database)}, nil
 }
