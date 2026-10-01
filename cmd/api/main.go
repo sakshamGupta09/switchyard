@@ -33,19 +33,23 @@ func main() {
 }
 
 func run() error {
+	// 1. Load environment variables
 	_ = godotenv.Load()
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	// 2. Connect to MongoDB
 	mongoClient, err := mongo.New(&cfg.Mongo)
 	if err != nil {
 		return fmt.Errorf("connect MongoDB: %w", err)
 	}
+	defer disconnectMongo(mongoClient)
 
+	// 3. Create router and HTTP server
 	router := server.NewRouter()
-	httpServer := server.NewServer(router, fmt.Sprintf(":%d", cfg.Port))
+	httpServer := server.New(router, cfg.Port)
 
 	signalCtx, stop := signal.NotifyContext(
 		context.Background(),
@@ -55,8 +59,14 @@ func run() error {
 
 	defer stop()
 
-	serverError := startServer(httpServer)
+	// 4. Start HTTP server
+	serverError := make(chan error, 1)
+	go func() {
+		slog.Info("starting http server")
+		serverError <- httpServer.Start()
+	}()
 
+	// 5. Wait for server to start or shutdown signal
 	select {
 	case <-signalCtx.Done():
 		slog.Info("shutdown signal received")
@@ -67,17 +77,8 @@ func run() error {
 			return nil
 		}
 		gracefulShutdown(httpServer, mongoClient)
-		return fmt.Errorf("start HTTP server: %w", err)
+		return fmt.Errorf("server error: %w", err)
 	}
-}
-
-func startServer(httpServer *server.Server) <-chan error {
-	serverError := make(chan error, 1)
-	go func() {
-		slog.Info("starting http server")
-		serverError <- httpServer.Start()
-	}()
-	return serverError
 }
 
 func gracefulShutdown(httpServer *server.Server, mongoClient *mongo.Client) {
