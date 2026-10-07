@@ -17,15 +17,15 @@ const (
 )
 
 type Client struct {
-	client *mongo.Client
-	db     *mongo.Database
+	Client *mongo.Client
+	DB     *mongo.Database
 }
 
 func (c *Client) Close(ctx context.Context) error {
-	if c == nil || c.client == nil {
+	if c == nil || c.Client == nil {
 		return nil
 	}
-	return c.client.Disconnect(ctx)
+	return c.Client.Disconnect(ctx)
 }
 
 func New(cfg *config.MongoConfig) (*Client, error) {
@@ -50,5 +50,5 @@ func New(cfg *config.MongoConfig) (*Client, error) {
 		_ = client.Disconnect(shutdownCtx)
 		return nil, fmt.Errorf("failed to ping MongoDB server: %w", err)
 	}
-	return &Client{client: client, db: client.Database(cfg.Database)}, nil
+	return &Client{Client: client, DB: client.Database(cfg.Database)}, nil
 }

@@ -1,17 +1,44 @@
 package health
 
-import "net/http"
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"time"
+)
 
-type Handler struct{}
+const timeout = 2 * time.Second
 
-func NewHandler() *Handler {
-	return &Handler{}
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
 }
 
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	response := map[string]string{"status": "ok"}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) ReadinessCheck(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	defer cancel()
+
+	if err := h.service.CheckMongoConnection(ctx); err != nil {
+		http.Error(w, "MongoDB not ready", http.StatusServiceUnavailable)
+		return
+	}
+
+	response := map[string]string{"status": "ok"}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	_ = json.NewEncoder(w).Encode(response)
 }

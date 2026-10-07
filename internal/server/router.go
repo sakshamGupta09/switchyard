@@ -1,6 +1,8 @@
 package server
 
 import (
+	"switchyard/internal/app"
+	"switchyard/internal/health"
 	"switchyard/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -8,11 +10,14 @@ import (
 
 const defaultMaxRequestBodySize = 1 << 20
 
-func NewRouter() *chi.Mux {
+func NewRouter(deps app.Dependencies) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Limit the size of the request body to 1 MB
 	r.Use(middleware.MaxRequestBodySize(defaultMaxRequestBodySize)) // 1 MB
+
+	// Register health check route
+	r.Mount("/health", health.RegisterRoutes(deps))
 
 	return r
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"switchyard/internal/app"
 	"switchyard/internal/config"
 	"switchyard/internal/database/mongo"
 	"switchyard/internal/logger"
@@ -48,7 +49,10 @@ func run() error {
 	defer disconnectMongo(mongoClient)
 
 	// 3. Create router and HTTP server
-	router := server.NewRouter()
+	deps := app.Dependencies{
+		MongoClient: mongoClient.Client,
+	}
+	router := server.NewRouter(deps)
 	httpServer := server.New(router, cfg.Port)
 
 	signalCtx, stop := signal.NotifyContext(
