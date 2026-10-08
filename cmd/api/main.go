@@ -49,7 +49,7 @@ func run() error {
 	defer disconnectMongo(mongoClient)
 
 	// 3. Create router and HTTP server
-	deps := app.Dependencies{
+	deps := app.RouteDeps{
 		MongoClient: mongoClient.Client,
 	}
 	router := server.NewRouter(deps)
