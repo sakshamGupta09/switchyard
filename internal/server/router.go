@@ -15,6 +15,7 @@ func NewRouter(deps app.RouteDeps) *chi.Mux {
 
 	// Limit the size of the request body to 1 MB
 	r.Use(middleware.MaxRequestBodySize(defaultMaxRequestBodySize)) // 1 MB
+	r.Use(middleware.RequestID)
 
 	// Register health check routes
 	r.Mount("/", health.RegisterRoutes(deps))
