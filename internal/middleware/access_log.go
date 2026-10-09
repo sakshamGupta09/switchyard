@@ -22,6 +22,5 @@ func AccessLog(next http.Handler) http.Handler {
 			"status_code", recorder.Status(),
 			"duration", time.Since(start),
 		)
-
 	})
 }
