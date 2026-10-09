@@ -13,9 +13,9 @@ const defaultMaxRequestBodySize = 1 << 20
 func NewRouter(deps app.RouteDeps) *chi.Mux {
 	r := chi.NewRouter()
 
-	// Limit the size of the request body to 1 MB
-	r.Use(middleware.MaxRequestBodySize(defaultMaxRequestBodySize)) // 1 MB
 	r.Use(middleware.RequestID)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.MaxRequestBodySize(defaultMaxRequestBodySize)) // 1 MB
 
 	// Register health check routes
 	r.Mount("/", health.RegisterRoutes(deps))
